@@ -74,30 +74,36 @@ void sub_process(const string &dir) {
 }
 
 int main(int argc, char **argv) {
-  if (argc > 1) {
+  if (argc < 2) {
     std::cerr
-        << "put decoder binary file in your qmc file directory, then run it."
+        << "filenames shall be passed via args..."
         << std::endl;
     return -1;
   }
 
   if ((fs::status(fs::path(".")).permissions() & fs::perms::owner_write) ==
       fs::perms::none) {
-    std::cerr << "please check if you have the write permissions on this dir."
+    std::cerr << "please check if you have the write permissions on current dir."
               << std::endl;
     return -1;
   }
   vector<string> qmc_paths;
   const regex qmc_regex{"^.+\\.(qmc3|qmc0|qmcflac|qmcogg)$"};
 
-  for (fs::recursive_directory_iterator i{fs::path(".")}, end; i != end; ++i) {
-    auto file_path = i->path().string();
-    if ((fs::status(*i).permissions() & fs::perms::owner_read) !=
-            fs::perms::none &&
-        fs::is_regular_file(*i) && regex_match(file_path, qmc_regex)) {
-      qmc_paths.emplace_back(std::move(file_path));
-    }
-  };
+  for (int i = 1; i < argc; ++i) {
+      auto absp = fs::absolute(fs::path{argv[i]});
+      if (fs::exists(absp) &&
+          (fs::status(absp).permissions() & fs::perms::owner_read) != fs::perms::none &&
+          fs::is_regular_file(absp) && regex_match(absp.string(), qmc_regex)) {
+          qmc_paths.emplace_back(std::move(absp.string()));
+      }
+      else {
+          std::cout << "check argument: " << argv[i] << " you give to this program..." << std::endl;
+          if (!fs::exists(absp)) std::cout << "Nonexistance!" << std::endl;
+          if ((fs::status(absp).permissions() & fs::perms::owner_read) == fs::perms::none) std::cout << "Non readable permission!" << std::endl;
+          if (fs::is_regular_file(absp) && regex_match(absp.string(), qmc_regex)) std::cout << "Not a proper target for conversion!" << std::endl;
+      }
+  }
 
   const auto n_thread = thread::hardware_concurrency();
   vector<thread> td_group;
